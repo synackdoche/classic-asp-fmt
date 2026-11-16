@@ -28,5 +28,8 @@
     inputs.blueprint {
       inherit inputs;
       systems = [ "x86_64-linux" ];
+    }
+    // {
+      treefmtModules.default = inputs.self.modules.treefmt.default;
     };
 }

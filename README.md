@@ -11,6 +11,8 @@ the upstream formatter's output: a real VBScript parser for the `<% %>` blocks,
 Prettier for the HTML, CSS and JavaScript around them, and a masking layer that
 verifies every block survived the round trip before anything is written.
 
+Use the upstream, this fork includes no independent thought.
+
 ## Running it
 
 ```console
@@ -77,22 +79,51 @@ unless `endOfLine` names another ending.
 
 ## treefmt
 
-```toml
-[formatter.classic-asp]
-command = "classic-asp-fmt"
-includes = ["*.asp", "*.asa", "*.inc"]
+The flake carries a treefmt-nix module, so a treefmt evaluation only needs to
+import it:
+
+```nix
+treefmtEval = treefmt-nix.lib.evalModule pkgs {
+  imports = [ inputs.classic-asp-fmt.treefmtModules.default ];
+  programs.classic-asp-fmt = {
+    enable = true;
+    config = {
+      formatter.keywordCase = "lowercase";
+      prettier.printWidth = 100;
+    };
+  };
+  projectRootFile = "flake.nix";
+};
 ```
 
-`treefmt --fail-on-change` is the CI gate. Run `classic-asp-fmt --check` first on
-a tree that has never been formatted: a page whose tags or blocks do not pair up
-is refused rather than rewritten, and a `<div>` opened in one `#include` and
-closed in another is one the formatter cannot see whole.
+`config` is the CLI's configuration file as an attrset; it is written to JSON and
+passed as `--config`, and the CLI validates it, so a key it does not know fails
+the run instead of being ignored. `configFile` takes a JSON file that already
+exists instead (its content is copied into the store, so the generated treefmt
+configuration depends on it and works inside a sandboxed check); setting both is
+an error. `includes` defaults to `*.asp`, `*.asa`, `*.inc`; `excludes`,
+`priority` and `package` are the rest of the surface.
+
+By hand, without the module:
+
+```toml
+[formatter.classic-asp-fmt]
+command = "classic-asp-fmt"
+includes = ["*.asp", "*.asa", "*.inc"]
+options = ["--config", "aspfmt.json"]
+```
+
+`treefmt --ci` is the CI gate. Run `classic-asp-fmt --check` first on a tree that
+has never been formatted: a page whose tags or blocks do not pair up is refused
+rather than rewritten, and a `<div>` opened in one `#include` and closed in
+another is one the formatter cannot see whole.
 
 ## Development
 
 ```console
 $ npm test                    # tsc, then the whole suite under mocha
 $ nix build .#checks.x86_64-linux.tests
+$ nix build .#checks.x86_64-linux.treefmt-module
 $ nix build .#checks.x86_64-linux.pre-commit
 $ nix fmt
 ```
