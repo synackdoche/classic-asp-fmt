@@ -42,9 +42,9 @@ import type { ParsedPage } from './symbols';
 import { orderKey, type ScopeFile, type ScriptScope } from './scriptScope';
 import { VBSCRIPT_BUILTIN_VALUES } from '../constants/aspKeywords';
 
-export type DeclarationKind = 'variable' | 'constant' | 'parameter' | 'sub' | 'function' | 'property' | 'class';
+type DeclarationKind = 'variable' | 'constant' | 'parameter' | 'sub' | 'function' | 'property' | 'class';
 
-export interface Declaration {
+interface Declaration {
     /** Lowercase, without brackets. */
     name: string;
     /** As written. */
@@ -62,7 +62,7 @@ export interface Declaration {
     node?: A.ProcedureStmt | A.ClassStmt;
 }
 
-export interface Scope {
+interface Scope {
     kind: 'script' | 'class' | 'procedure';
     parent: Scope | null;
     /** The procedure or class that opens it; null for a script scope. */
@@ -71,7 +71,7 @@ export interface Scope {
 }
 
 /** One place a name is written: a declaration, or a use of one. */
-export interface Reference {
+interface Reference {
     name: string;
     file: string;
     span: A.Span;
@@ -85,7 +85,7 @@ export interface Reference {
  * `obj.name`, or `.name` inside a With block: a member of some object.
  * Nothing says what class the object is, so it is not bound to a declaration.
  */
-export interface MemberUse {
+interface MemberUse {
     name: string;
     file: string;
     span: A.Span;
@@ -94,7 +94,7 @@ export interface MemberUse {
     object?: A.Expr | null;
 }
 
-export interface BindingDiagnostic {
+interface BindingDiagnostic {
     file: string;
     start: number;
     end: number;
@@ -119,7 +119,7 @@ export function bindPage(path: string, page: ParsedPage): Binding {
     return bindScriptScope({ root: file, files: [file], chunks: [{ file, start: 0, end: page.text.length + 1 }], problems: [] });
 }
 
-export function bindScriptScope(scriptScope: ScriptScope): Binding {
+function bindScriptScope(scriptScope: ScriptScope): Binding {
     return new Binder(scriptScope).bind();
 }
 
@@ -551,13 +551,6 @@ function statementAt(stmts: A.Stmt[], offset: number): A.Stmt | undefined {
     }
     const s = stmts[lo];
     return s && s.start <= offset && offset < s.end ? s : undefined;
-}
-
-/** The script scope a scope sits in: the server script, or a client-side script. */
-export function rootOf(scope: Scope): Scope {
-    let s = scope;
-    while (s.parent) { s = s.parent; }
-    return s;
 }
 
 /** Calls `visit` on every statement of a procedure body, nested blocks included, in source order. */

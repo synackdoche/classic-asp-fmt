@@ -40,49 +40,49 @@ export interface LiteralExpr extends Span {
     raw: string;
 }
 
-export interface IdentExpr extends Span {
+interface IdentExpr extends Span {
     kind: 'Ident';
     name: Name;
 }
 
 /** `object.name`, or `.name` inside a With block, where `object` is null. */
-export interface MemberExpr extends Span {
+interface MemberExpr extends Span {
     kind: 'Member';
     object: Expr | null;
     name: Name;
 }
 
 /** `callee(args)`: a call or an array index, which VBScript does not tell apart. An omitted argument is null. */
-export interface CallExpr extends Span {
+interface CallExpr extends Span {
     kind: 'Call';
     callee: Expr;
     args: (Expr | null)[];
 }
 
-export interface UnaryExpr extends Span {
+interface UnaryExpr extends Span {
     kind: 'Unary';
     op: string;
     operand: Expr;
 }
 
-export interface BinaryExpr extends Span {
+interface BinaryExpr extends Span {
     kind: 'Binary';
     op: string;
     left: Expr;
     right: Expr;
 }
 
-export interface ParenExpr extends Span {
+interface ParenExpr extends Span {
     kind: 'Paren';
     expr: Expr;
 }
 
-export interface NewExpr extends Span {
+interface NewExpr extends Span {
     kind: 'New';
     className: Name;
 }
 
-export interface MeExpr extends Span {
+interface MeExpr extends Span {
     kind: 'Me';
 }
 
@@ -117,7 +117,7 @@ export type Stmt =
     | StopStmt
     | ErrorStmt;
 
-export interface OptionExplicitStmt extends Span {
+interface OptionExplicitStmt extends Span {
     kind: 'OptionExplicit';
 }
 
@@ -158,13 +158,13 @@ export interface CallStmt extends Span {
 }
 
 /** `<%= expr %>` */
-export interface OutputStmt extends Span {
+interface OutputStmt extends Span {
     kind: 'Output';
     value: Expr;
 }
 
 /** HTML between two blocks, which IIS turns into a Response.WriteBlock call. */
-export interface HtmlStmt extends Span {
+interface HtmlStmt extends Span {
     kind: 'Html';
 }
 
@@ -174,7 +174,7 @@ export interface HtmlStmt extends Span {
  * `Loop`. The closer is null when the block is never closed, or is closed by
  * the wrong keyword (an `End Function` ending a Sub).
  */
-export interface BlockKeywords {
+interface BlockKeywords {
     opener: Span;
     closer: Span | null;
 }
@@ -287,7 +287,7 @@ export interface EraseStmt extends Span {
     targets: Expr[];
 }
 
-export interface StopStmt extends Span {
+interface StopStmt extends Span {
     kind: 'Stop';
 }
 

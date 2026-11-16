@@ -1,5 +1,5 @@
 import { codeWithoutStrings, endsWithContinuation, splitCodeAndComment, vbStatements, vbStringSegments } from '../core/vbLexical';
-import type { FormatterSettings, PrettierSettings } from '../platform/settings';
+import type { FormatterSettings, PrettierSettings } from '../options';
 import { ASP_MEMBER_DOCS, VBSCRIPT_BARE_FUNCTIONS, VBSCRIPT_FUNCTIONS } from '../constants/aspKeywords';
 import { getStringAlignColumn, isBlockOpener, VBSCRIPT_BLOCK_CLOSERS } from '../vbscript/indentRules';
 import type { ParsedPage } from '../vbscript/symbols';
@@ -62,7 +62,7 @@ export function aspFormatterSettings(formatter: FormatterSettings, prettier: Pre
 
 // ─── Public API ────────────────────────────────────────────────────────────
 
-export interface FormatBlockResult {
+interface FormatBlockResult {
     formatted: string;
     // VBScript indent level at the end of this block, threaded into the next.
     endLevel: number;
@@ -373,7 +373,7 @@ function formatMultiLineAspBlock(
  * Decrements the indent level BEFORE printing a line (for closing keywords).
  * Returns the level at which this line should be printed.
  */
-export function applyIndentBefore(
+function applyIndentBefore(
     line:             string,
     level:            number,
     selectCaseStack:  number[],
@@ -563,7 +563,7 @@ function isSQLStatement(line: string): boolean {
 // ─── Keyword casing ────────────────────────────────────────────────────────
 
 // Multi-word and special-cased keywords that need exact casing.
-export const PROPER_CASING_MAP: Record<string, string> = {
+const PROPER_CASING_MAP: Record<string, string> = {
     'elseif': 'ElseIf', 'redim': 'ReDim', 'byval': 'ByVal',
     'byref': 'ByRef', 'readonly': 'ReadOnly', 'writeonly': 'WriteOnly', 'endif': 'EndIf',
     'endsub': 'EndSub', 'endfunction': 'EndFunction', 'endwith': 'EndWith',
@@ -584,7 +584,7 @@ export const PROPER_CASING_MAP: Record<string, string> = {
  * not the formatter's business. After a dot the name really is the API's, and
  * casing it to match the documentation is worth doing.
  */
-export const MEMBER_CASING_MAP: Record<string, string> = {
+const MEMBER_CASING_MAP: Record<string, string> = {
     'absolutepage': 'AbsolutePage', 'absoluteposition': 'AbsolutePosition', 'add': 'Add',
     'addheader': 'AddHeader', 'addnew': 'AddNew', 'appendtolog': 'AppendToLog',
     'atendofline': 'AtEndOfLine', 'atendofstream': 'AtEndOfStream', 'begintrans': 'BeginTrans',
@@ -633,7 +633,7 @@ export const MEMBER_CASING_MAP: Record<string, string> = {
  * `Dim day` and `Dim date` alike — so a function is cased only where it is used
  * as one; see isFunctionUse.
  */
-export const VBSCRIPT_FUNCTIONS_MAP: Record<string, string> = Object.fromEntries(
+const VBSCRIPT_FUNCTIONS_MAP: Record<string, string> = Object.fromEntries(
     VBSCRIPT_FUNCTIONS.map(name => [name.toLowerCase(), name]),
 );
 
@@ -642,7 +642,7 @@ const BARE_FUNCTIONS = new Set(VBSCRIPT_BARE_FUNCTIONS.map(name => name.toLowerC
 
 // General VBScript keywords ordered longest-first so multi-word keywords
 // like "end function" are matched before single-word ones like "end".
-export const KEYWORDS_SORTED: string[] = [
+const KEYWORDS_SORTED: string[] = [
     'if', 'then', 'else', 'elseif', 'end if', 'select case', 'case',
     'case else', 'end select', 'for', 'to', 'step', 'next', 'for each',
     'in', 'while', 'wend', 'do', 'loop', 'until', 'exit do',

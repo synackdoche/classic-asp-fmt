@@ -16,9 +16,13 @@
  * the editor (open buffers first), a worker thread and the tests share it.
  */
 
-import { parseIncludeDirectives, type IncludeDirective } from '../core/includeDirectives';
-import { parsePage, type ParsedPage } from './symbols';
-import { pathKey } from '../core/paths';
+import type { ParsedPage } from './symbols';
+
+interface IncludeDirective {
+    type: 'file' | 'virtual';
+    raw: string;
+    index: number;
+}
 
 export interface ScopeFile {
     path: string;
@@ -27,7 +31,7 @@ export interface ScopeFile {
     includes: ScopeInclude[];
 }
 
-export interface ScopeInclude {
+interface ScopeInclude {
     directive: IncludeDirective;
     /** Where the directive ends, after its `-->`. */
     end: number;
@@ -38,14 +42,14 @@ export interface ScopeInclude {
 }
 
 /** A stretch of one file's text, in the order IIS reads the program. */
-export interface Chunk {
+interface Chunk {
     file: ScopeFile;
     start: number;
     end: number;
 }
 
 /** Something about the includes IIS would complain of. */
-export interface ScopeProblem {
+interface ScopeProblem {
     kind: 'missing' | 'loop' | 'twice';
     file: ScopeFile;
     start: number;
@@ -59,88 +63,6 @@ export interface ScriptScope {
     files: ScopeFile[];
     chunks: Chunk[];
     problems: ScopeProblem[];
-}
-
-export interface ScopeHost {
-    /** A file's text, or null when it cannot be read. */
-    read(path: string): string | null;
-    /** The absolute path a directive in `fromPath` names. */
-    resolve(directive: IncludeDirective, fromPath: string): string;
-    /** How to parse a file; lets a caller reuse a cached parse. */
-    parse?(path: string, text: string): ParsedPage;
-    /**
-     * Files to count as included at the top of the page, for a site whose
-     * pages get them from a shared layout page instead (the defaultIncludes
-     * setting). One that cannot be read is left out.
-     */
-    defaultIncludes?(rootPath: string): string[];
-}
-
-export function buildScriptScope(rootPath: string, rootText: string, host: ScopeHost): ScriptScope {
-    const loaded = new Map<string, ScopeFile | null>();
-    const files: ScopeFile[] = [];
-    const parse = host.parse ?? ((_path: string, text: string) => parsePage(text));
-
-    const load = (path: string, text: string | null): ScopeFile | null => {
-        const key = pathKey(path);
-        if (loaded.has(key)) { return loaded.get(key)!; }
-        if (text === null) { loaded.set(key, null); return null; }
-
-        const file: ScopeFile = { path, text, page: parse(path, text), includes: [] };
-        loaded.set(key, file);
-        files.push(file);
-
-        for (const directive of parseIncludeDirectives(text)) {
-            const close = text.indexOf('-->', directive.index);
-            const target = host.resolve(directive, path);
-            file.includes.push({
-                directive,
-                end: close === -1 ? text.length : close + 3,
-                path: target,
-                file: load(target, loaded.has(pathKey(target)) ? null : host.read(target)),
-            });
-        }
-        return file;
-    };
-
-    const root = load(rootPath, rootText)!;
-    const defaults: ScopeFile[] = [];
-    for (const path of host.defaultIncludes?.(rootPath) ?? []) {
-        const file = load(path, loaded.has(pathKey(path)) ? null : host.read(path));
-        if (file && file !== root && !defaults.includes(file)) { defaults.push(file); }
-    }
-    const chunks: Chunk[] = [];
-    const problems: ScopeProblem[] = [];
-    const expanded = new Set<ScopeFile>();
-
-    const linearize = (file: ScopeFile, stack: ScopeFile[]): void => {
-        expanded.add(file);
-        let pos = 0;
-        for (const inc of file.includes) {
-            if (inc.directive.index > pos) { chunks.push({ file, start: pos, end: inc.directive.index }); }
-            pos = inc.end;
-
-            const at = { file, start: inc.directive.index, end: inc.end };
-            if (!inc.file) {
-                problems.push({ ...at, kind: 'missing', message: `Include file not found: ${inc.path}` });
-            } else if (stack.includes(inc.file) || inc.file === file) {
-                problems.push({ ...at, kind: 'loop', message: `The include file '${inc.directive.raw}' includes itself` });
-            } else if (expanded.has(inc.file)) {
-                // IIS pastes it in again, so everything it declares is declared twice.
-                // A default include is only counted as included, so including it for real is fine.
-                if (!defaults.includes(inc.file)) {
-                    problems.push({ ...at, kind: 'twice', message: `'${inc.directive.raw}' is already included on this page` });
-                }
-            } else {
-                linearize(inc.file, [...stack, file]);
-            }
-        }
-        if (pos < file.text.length) { chunks.push({ file, start: pos, end: file.text.length }); }
-    };
-    for (const file of defaults) { if (!expanded.has(file)) { linearize(file, []); } }
-    linearize(root, []);
-
-    return { root, files, chunks, problems };
 }
 
 /**

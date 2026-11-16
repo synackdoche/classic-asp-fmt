@@ -29,7 +29,7 @@ import type { Segment } from './pageSegments';
  * keywords, and the words VBScript reserves without using (`Integer`, `Enum`).
  * After a `.` any word is a name.
  */
-export const RESERVED = new Set([
+const RESERVED = new Set([
     'and', 'as', 'byref', 'byval', 'call', 'case', 'class', 'const', 'dim', 'do', 'each', 'else',
     'elseif', 'empty', 'end', 'eqv', 'exit', 'false', 'for', 'function', 'get', 'goto', 'if',
     'imp', 'in', 'is', 'let', 'loop', 'mod', 'new', 'next', 'not', 'nothing', 'null', 'on',
@@ -39,11 +39,6 @@ export const RESERVED = new Set([
     'like', 'long', 'lset', 'optional', 'paramarray', 'raiseevent', 'rset', 'shared', 'single',
     'static', 'type', 'typeof', 'variant',
 ]);
-
-/** True when `word` (lower-cased) can never name a variable, procedure or class: a reserved word, `Me` or `Rem`. */
-export function isReservedWord(word: string): boolean {
-    return RESERVED.has(word) || word === 'me' || word === 'rem';
-}
 
 type BlockKind = 'if' | 'select' | 'for' | 'foreach' | 'do' | 'while' | 'with' | 'sub' | 'function' | 'property' | 'class';
 

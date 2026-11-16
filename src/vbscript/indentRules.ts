@@ -21,14 +21,6 @@ import { walkStatements } from './symbols';
 // Pure closers: end a block, snap back to opener indent level
 export const VBSCRIPT_BLOCK_CLOSERS = /^(End\s+If\b|End\s+Sub\b|End\s+Function\b|End\s+Property\b|End\s+With\b|End\s+Select\b|End\s+Class\b|Next\b|Loop\b|Wend\b)/i;
 
-// Mid-block keywords: close the block above AND open a new block below.
-// On Enter they snap to their opener's indent, then give +1 on the next line.
-export const VBSCRIPT_MID_BLOCK = /^(ElseIf\b|Else\b|Case\b)/i;
-
-// Exact-match regex for auto-snap (onDidChangeTextDocument)
-export const VBSCRIPT_EXACT_CLOSER =
-    /^(End\s+If|End\s+Sub|End\s+Function|End\s+Property|End\s+With|End\s+Select|End\s+Class|Next|Loop|Wend|ElseIf(?:\s+.*Then)?|Else|Case(?:\s+Else)?(?:\s+\S.*)?)$/i;
-
 /**
  * True when a line of VBScript leaves a block open, so the next line indents
  * +1, as the parser reads the line: `If x Then` and `Public Sub Foo` open one;

@@ -56,7 +56,7 @@ export interface Token {
     error?: string;
 }
 
-export interface LexResult {
+interface LexResult {
     tokens: Token[];
     comments: { start: number; end: number }[];
 }

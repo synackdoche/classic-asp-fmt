@@ -1,4 +1,4 @@
-import type * as prettier from 'prettier';
+import * as prettier from 'prettier';
 import { formatSingleAspBlock, aspFormatterSettings, delimitersAtColumnZero, pageNames, type AspFormatterSettings } from './aspFormatter';
 import { aspTagProblems, findNextRealTag, findTagEnd, findClosingTag, getVbScriptBlockRanges } from '../core/zoneUtils';
 import { analyseHtmlStructure } from '../core/htmlStructure';
@@ -6,8 +6,7 @@ import { VOID_ELEMENTS } from '../constants/htmlTags';
 import { pageLanguage } from '../vbscript/pageSegments';
 import { parsePage, type ParsedPage } from '../vbscript/symbols';
 import { pageBlocks } from '../vbscript/pageAnalysis';
-import { formatterSettings, prettierSettings as readPrettierSettings, type PrettierSettings } from '../platform/settings';
-import { loadPrettier } from '../core/lazyModule';
+import type { FormatOptions, PrettierSettings } from '../options';
 import { lineOf, OffsetMap, offsetOf, replaceRecorded, toOriginal } from './offsetMap';
 
 // ─── ASP block types ───────────────────────────────────────────────────────
@@ -705,20 +704,11 @@ export type FormatResult =
         message: string;
         /** 'info' when nothing is wrong with the page — it is just not one the formatter formats. */
         severity: 'warning' | 'info';
-        /** More for the log, when there is more. */
-        details?: string;
         /** The page's 0-based line the problem is on, when known. */
         line?: number;
     };
 
-/** The page formatted, or the page as it was when formatting refused (the reason is lost: use formatPage). */
-export async function formatCompleteAspFile(code: string): Promise<string> {
-    const result = await formatPage(code);
-    return result.ok ? result.text : code;
-}
-
-/** `parsed`, when given, is a parse the caller already has; it is used only for the text it is a parse of. */
-export async function formatPage(code: string, parsed?: ParsedPage): Promise<FormatResult> {
+export async function formatPage(code: string, options: FormatOptions): Promise<FormatResult> {
     // A `<%` never closed, or a `%>` outside every block, by the lexical rule IIS
     // uses: the first `%>` ends a block, even one at the end of a comment, so
     // `<% 'Response.Write x %>` is a whole block. An unclosed `<%` would run the
@@ -739,10 +729,14 @@ export async function formatPage(code: string, parsed?: ParsedPage): Promise<For
         };
     }
 
-    const prettierSettings = readPrettierSettings();
+    const prettierSettings = options.prettier;
     // The page is asked for its names and for its If structure, often of the
     // same text: one parse serves both.
-    const parse = (text: string): ParsedPage => parsed?.text === text ? parsed : (parsed = parsePage(text));
+    let cached: ParsedPage | undefined;
+    const parse = (text: string): ParsedPage => {
+        if (cached?.text !== text) { cached = parsePage(text); }
+        return cached;
+    };
     const run: FormatRun = {
         code,
         parse,
@@ -751,11 +745,8 @@ export async function formatPage(code: string, parsed?: ParsedPage): Promise<For
         // PlaceholderNames.
         names:    new PlaceholderNames(code),
         prettier: prettierSettings,
-        asp:      { ...aspFormatterSettings(formatterSettings(), prettierSettings), pageNames: pageNames(parse(code)) },
+        asp:      { ...aspFormatterSettings(options.formatter, prettierSettings), pageNames: pageNames(parse(code)) },
         options:  prettierOptionsFor(prettierSettings),
-        // Loaded on the first format rather than when the extension starts: nothing
-        // else needs it, and loading it added ~40 ms to every window's startup.
-        format:   loadPrettier().format,
     };
 
     // ── Step 1: Mask JS event-handler attribute values ───────────────────────
@@ -780,7 +771,7 @@ export async function formatPage(code: string, parsed?: ParsedPage): Promise<For
     // ── Step 3: Run Prettier on the masked HTML ──────────────────────────────
     let prettifiedCode: string;
     try {
-        prettifiedCode = await run.format(page.maskedCode, run.options);
+        prettifiedCode = await prettier.format(page.maskedCode, run.options);
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         // Where Prettier stopped, in the masked text, and so in the page.
@@ -791,20 +782,9 @@ export async function formatPage(code: string, parsed?: ParsedPage): Promise<For
         const line = maskedLine === undefined
             ? undefined
             : lineOf(code, toOriginal(offsetOf(page.maskedCode, maskedLine, maskedColumn), page.maps));
-        const near = line === undefined ? '' : ` near line ${line + 1}`;
-
         return {
             ok: false, reason: 'prettier', severity: 'warning', line,
-            message: `Couldn't format this page: Prettier could not read the HTML${near}.`,
-            // The masked code is what Prettier choked on, so it goes in the log with the error.
-            details: [
-                `Prettier could not parse the page${near}: ${msg}`,
-                maskedLine === undefined ? '' : `(That is line ${maskedLine} of the masked code below.)`,
-                '=== Masked code sent to Prettier ===',
-                page.maskedCode,
-                '=== ASP blocks classified ===',
-                ...page.aspBlocks.map(b => `  line ${b.lineNumber + 1}  kind=${b.kind}  ${b.code.slice(0, 60).replace(/\n/g, '\\n')}`),
-            ].join('\n'),
+            message: `Couldn't format this page: Prettier could not read the HTML${line === undefined ? '' : ` near line ${line + 1}`}.`,
         };
     }
 
@@ -846,7 +826,6 @@ interface FormatRun {
     prettier: PrettierSettings;
     asp:      AspFormatterSettings;
     options:  prettier.Options;
-    format:   typeof prettier.format;
 }
 
 /** The page with every <% %> block and hidden tag behind a placeholder, ready for Prettier. */
@@ -922,7 +901,7 @@ function maskAspBlocks(run: FormatRun, jsPreMasked: string, rawRanges: Array<[nu
     // and put back afterwards, the indent it belongs at included.
     // Every element, not only the structural ones: `<p class="x">` opened in
     // both branches gained a `</p>` after the first.
-    const hidden = analyseHtmlStructure(jsPreMasked, pageBlocks(run.parse(jsPreMasked)).events, name => !VOID_ELEMENTS.has(name)).hidden;
+    const hidden = analyseHtmlStructure(jsPreMasked, pageBlocks(run.parse(jsPreMasked)), name => !VOID_ELEMENTS.has(name));
     const hiddenTags: HiddenTagPlaceholder[] = [];
     let   nextHidden = 0;
 
@@ -1092,7 +1071,7 @@ function maskAspBlocks(run: FormatRun, jsPreMasked: string, rawRanges: Array<[nu
 
 async function layOutAsWritten(run: FormatRun, page: MaskedPage, firstPass: string): Promise<string> {
     const { aspBlocks, hiddenTags } = page;
-    const { format, options: prettierOptions } = run;
+    const { options: prettierOptions } = run;
     const normalBlocks = aspBlocks.filter(block => block.kind === 'normal');
     let prettifiedCode = firstPass;
 
@@ -1162,7 +1141,7 @@ async function layOutAsWritten(run: FormatRun, page: MaskedPage, firstPass: stri
             respaced.push(prettifiedCode.slice(scan));
 
             try {
-                prettifiedCode = await format(respaced.toString(), prettierOptions);
+                prettifiedCode = await prettier.format(respaced.toString(), prettierOptions);
             } catch {
                 // Keep the first result: a layout that needs a second format is
                 // far better than refusing to format at all.

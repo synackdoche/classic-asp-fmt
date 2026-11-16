@@ -18,66 +18,11 @@
 import type * as A from './ast';
 import { parseProgram } from './parser';
 import { pagePrograms } from './pageSegments';
-import { COM_METHOD_RETURN_TYPES, normalizeProgId } from '../constants/comObjects';
-
-/** A page's declared symbols, which every feature reads. */
-export interface FileSymbols {
-    // `implicit` marks a name that was never explicitly declared - a bare
-    // assignment (no Option Explicit) or a For Each loop variable. VBScript
-    // does NOT create a new local for those: inside a procedure they resolve to
-    // the module-level variable of that name when one exists. Only an explicit
-    // Dim/Const shadows it, so anything reasoning about scope must tell them
-    // apart.
-    variables:    { name: string; line: number; filePath: string; implicit?: boolean }[];
-    constants:    { name: string; value: string; line: number; filePath: string }[];
-    functions:    {
-        name: string;
-        kind: 'Function' | 'Sub' | 'Property';
-        params: string;
-        paramNames: string[];
-        line: number;
-        endLine: number;
-        filePath: string;
-    }[];
-    comVariables: { name: string; progId: string; line: number; filePath: string }[];
-    classes:      { name: string; line: number; endLine: number; filePath: string }[];
-}
 
 export interface ParsedPage {
     text: string;
     programs: A.Program[];
     lineStarts: number[];
-}
-
-/** A `<object runat="server" id="…">` tag: an object the page's scripts use without declaring it. */
-export interface ServerObject {
-    /** As written. */
-    id: string;
-    /** As written, or null for an object given by classid. */
-    progId: string | null;
-    /** As written — Page, Session or Application — or null. */
-    scope: string | null;
-    /** The whole tag. */
-    start: number;
-    end: number;
-}
-
-/** Every `<object runat="server">` tag with an id, in page order. */
-export function serverObjects(text: string): ServerObject[] {
-    const objects: ServerObject[] = [];
-    const attr = (tag: string, name: string) => new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
-    for (const m of text.matchAll(/<object\b[^>]*>/gi)) {
-        const tag = m[0];
-        if (!/^server$/i.test(valueOf(attr(tag, 'runat')) ?? '')) { continue; }
-        const id = valueOf(attr(tag, 'id'));
-        if (!id || !/^[A-Za-z_]\w*$/.test(id)) { continue; }
-        objects.push({ id, progId: valueOf(attr(tag, 'progid')), scope: valueOf(attr(tag, 'scope')), start: m.index, end: m.index + tag.length });
-    }
-    return objects;
-}
-
-function valueOf(match: RegExpExecArray | null): string | null {
-    return match ? (match[1] ?? match[2] ?? match[3]) : null;
 }
 
 export function parsePage(text: string): ParsedPage {
@@ -104,18 +49,6 @@ function lineStartsOf(text: string): number[] {
     return starts;
 }
 
-/** 0-based line of an offset. */
-export function lineAt(page: ParsedPage, offset: number): number {
-    const starts = page.lineStarts;
-    let lo = 0;
-    let hi = starts.length - 1;
-    while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (starts[mid] <= offset) { lo = mid; } else { hi = mid - 1; }
-    }
-    return lo;
-}
-
 /**
  * Calls `visit` on every statement, depth first, in source order, with the
  * procedure it sits in (null outside any Sub, Function or Property).
@@ -139,146 +72,4 @@ export function walkStatements(
             case 'Class':     walkStatements(s.members, visit, procedure); break;
         }
     }
-}
-
-/** The keyword a procedure is declared with, as it is written: `Sub`, `Function`, `Property`. */
-export const PROCEDURE_WORD: Record<A.ProcedureStmt['procKind'], 'Function' | 'Sub' | 'Property'> = {
-    function: 'Function', sub: 'Sub', property: 'Property',
-};
-
-/** Source text of a span, with `_` line continuations folded into one space. */
-export function sourceOf(text: string, span: A.Span): string {
-    return text.slice(span.start, span.end).replace(/[ \t]*_[ \t]*(?:\r\n|\r|\n)[ \t]*/g, ' ').trim();
-}
-
-/** The ProgID of `CreateObject("…")` or `Server.CreateObject("…")`, normalised; undefined for any other expression. */
-export function createdProgId(e: A.Expr): string | undefined {
-    if (e.kind !== 'Call' || e.args.length !== 1) { return undefined; }
-    const callee = e.callee;
-    const creates = callee.kind === 'Ident' ? callee.name.name === 'createobject'
-        : callee.kind === 'Member' && callee.name.name === 'createobject'
-            && callee.object?.kind === 'Ident' && callee.object.name.name === 'server';
-    const arg = e.args[0];
-    return creates && arg?.kind === 'Literal' && arg.type === 'string' ? normalizeProgId(arg.raw.slice(1, -1).replace(/""/g, '"')) : undefined;
-}
-
-export function symbolsFromTree(text: string, filePath: string): FileSymbols {
-    return symbolsOfPage(parsePage(text), filePath);
-}
-
-/** Each parse's symbols, so a page that completion and the checks both read is read once. */
-const symbolsKept = new WeakMap<ParsedPage, Map<string, FileSymbols>>();
-
-/** symbolsFromTree for a page already parsed, read once per parse and path, and shared: not to be changed. */
-export function symbolsOfPage(page: ParsedPage, filePath: string): FileSymbols {
-    let kept = symbolsKept.get(page);
-    if (!kept) { symbolsKept.set(page, kept = new Map()); }
-    let symbols = kept.get(filePath);
-    if (!symbols) { kept.set(filePath, symbols = readSymbols(page, filePath)); }
-    return symbols;
-}
-
-function readSymbols(page: ParsedPage, filePath: string): FileSymbols {
-    const text = page.text;
-    const result: FileSymbols = { variables: [], constants: [], functions: [], comVariables: [], classes: [] };
-
-    const statements: A.Stmt[] = [];
-    // The procedure each assignment sits in, for the function's own name.
-    const owners = new Map<A.Stmt, A.ProcedureStmt | null>();
-    for (const program of page.programs) {
-        walkStatements(program.body, (s, procedure) => { statements.push(s); owners.set(s, procedure); });
-    }
-    statements.sort((a, b) => a.start - b.start);
-
-    const line = (offset: number) => lineAt(page, offset);
-    const hasOptionExplicit = statements.some(s => s.kind === 'OptionExplicit');
-    // Lower-cased names already in result.variables: a Set, as a page can assign thousands of times.
-    const variableNames = new Set<string>();
-    const seen = (name: string) => variableNames.has(name);
-    const addVariable = (variable: FileSymbols['variables'][number]) => {
-        result.variables.push(variable);
-        variableNames.add(variable.name.toLowerCase());
-    };
-
-    for (const s of statements) {
-        switch (s.kind) {
-            case 'Dim':
-                for (const d of s.declarators) {
-                    addVariable({ name: d.name.text, line: line(s.start), filePath });
-                }
-                break;
-
-            case 'ForEach':
-                if (s.variable.name && !seen(s.variable.name)) {
-                    addVariable({ name: s.variable.text, line: line(s.start), filePath, implicit: true });
-                }
-                break;
-
-            case 'Assign': {
-                if (s.set || hasOptionExplicit || s.target.kind !== 'Ident' || seen(s.target.name.name)) { break; }
-                const owner = owners.get(s);
-                if (owner && owner.procKind !== 'sub' && owner.name.name === s.target.name.name) { break; }
-                addVariable({ name: s.target.name.text, line: line(s.start), filePath, implicit: true });
-                break;
-            }
-
-            case 'Const':
-                for (const d of s.declarators) {
-                    result.constants.push({ name: d.name.text, value: sourceOf(text, d.value), line: line(s.start), filePath });
-                }
-                break;
-
-            case 'Procedure':
-                result.functions.push({
-                    name:       s.name.text,
-                    kind:       PROCEDURE_WORD[s.procKind],
-                    params:     s.paramList ? sourceOf(text, s.paramList) : '',
-                    paramNames: s.params.map(p => p.name.text),
-                    line:       line(s.start),
-                    endLine:    s.endStatement ? line(s.endStatement.start) : -1,
-                    filePath,
-                });
-                break;
-
-            case 'Class':
-                result.classes.push({
-                    name:    s.name.text,
-                    line:    line(s.start),
-                    endLine: s.endStatement ? line(s.endStatement.start) : -1,
-                    filePath,
-                });
-                break;
-        }
-    }
-
-    // COM types: every `<object runat="server" progid="…">` and `Set x =
-    // CreateObject("…")` first, then the variables assigned from a typed
-    // object's method, `Set f = fso.GetFile(p)`, in order.
-    for (const object of serverObjects(text)) {
-        if (!object.progId) { continue; }
-        result.comVariables.push({ name: object.id, progId: normalizeProgId(object.progId), line: line(object.start), filePath });
-    }
-    const sets = statements.filter((s): s is A.AssignStmt => s.kind === 'Assign' && s.set && s.target.kind === 'Ident');
-    for (const s of sets) {
-        const progId = createdProgId(s.value);
-        if (progId) { result.comVariables.push({ name: (s.target as A.IdentExpr).name.text, progId, line: line(s.start), filePath }); }
-    }
-
-    const comVarIndex = new Map(result.comVariables.map(cv => [cv.name.toLowerCase(), cv.progId]));
-    for (const s of sets) {
-        const target = (s.target as A.IdentExpr).name;
-        const v = s.value;
-        if (comVarIndex.has(target.name)) { continue; }
-        if (v.kind !== 'Call' || v.callee.kind !== 'Member' || v.callee.object?.kind !== 'Ident') { continue; }
-
-        const sourceProgId = comVarIndex.get(v.callee.object.name.name);
-        if (!sourceProgId) { continue; }
-        const returnProgId = COM_METHOD_RETURN_TYPES[`${sourceProgId}.${v.callee.name.name}`];
-        if (!returnProgId) { continue; }
-
-        result.comVariables.push({ name: target.text, progId: returnProgId, line: line(s.start), filePath });
-        comVarIndex.set(target.name, returnProgId);
-    }
-
-    return result;
 }

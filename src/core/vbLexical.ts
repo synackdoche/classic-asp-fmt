@@ -22,7 +22,7 @@
 
 import { tokenize, TokenKind, type Token } from '../vbscript/lexer';
 
-export interface VbStringRange {
+interface VbStringRange {
     /** The opening quote. */
     start: number;
     /** Just past the closing quote, or the end of the line when there is none. */
@@ -30,7 +30,7 @@ export interface VbStringRange {
     closed: boolean;
 }
 
-export interface VbLine {
+interface VbLine {
     /** Where the comment starts (its `'`, or the R of `Rem`), or the line's length when there is none. */
     codeEnd: number;
     /** Each string literal, quotes included, in order. */
@@ -58,12 +58,6 @@ export function scanVbLine(line: string, from = 0): VbLine {
 export function splitCodeAndComment(line: string, from = 0): { code: string; comment: string } {
     const { codeEnd } = scanVbLine(line, from);
     return { code: line.slice(0, codeEnd), comment: line.slice(codeEnd) };
-}
-
-/** True when `col` is inside a string literal or a comment, where a word is data, not code. */
-export function isInVbStringOrComment(line: string, col: number, from = 0): boolean {
-    const scan = scanVbLine(line, from);
-    return col > scan.codeEnd || scan.strings.some(s => s.start < col && (col < s.end || !s.closed));
 }
 
 /** True when the line ends with a `_` continuation. */

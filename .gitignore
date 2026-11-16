@@ -1,15 +1,6 @@
-# Node / VS Code stuff
 node_modules/
-.vscode/
-
-# Downloaded VS Code build used by the integration test harness (@vscode/test-cli)
-.vscode-test/
-
-# Compiled output
 out/
-
-# VSIX package
-*.vsix
-
-# Older build compiled by scripts/build-baseline.js for the parser comparison
-.baseline/
+result
+result-*
+.pre-commit-config.yaml
+.direnv/

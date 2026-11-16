@@ -3,10 +3,9 @@
  * Core shared utilities for zone detection inside .asp files.
  */
 
-import type * as HtmlLs from 'vscode-html-languageservice';
-import { loadHtmlService } from './lazyModule';
+import * as HtmlLs from 'vscode-html-languageservice';
 
-export type Zone = 'asp' | 'css' | 'js' | 'html';
+type Zone = 'asp' | 'css' | 'js' | 'html';
 
 // ---------------------------------------------------------------------------
 // Low-level scanners
@@ -51,7 +50,7 @@ function skipVbsString(text: string, start: number): number {
  * rejects such a page anyway; reading the string as markup would turn
  * everything after it into a bogus script or style.
  */
-export function aspMarkupBlocks(text: string): Array<{ start: number; end: number }> {
+function aspMarkupBlocks(text: string): Array<{ start: number; end: number }> {
     const blocks: Array<{ start: number; end: number }> = [];
     let open = text.indexOf('<%');
     while (open !== -1) {
@@ -80,7 +79,7 @@ export function aspMarkupBlocks(text: string): Array<{ start: number; end: numbe
  * — a space unless the caller needs a token there. Line breaks, `\r` included,
  * stay, so every offset, line and column still points at the same place.
  */
-export function maskAsp(
+function maskAsp(
     text: string, fill: (blockStart: number) => string = () => ' ', blocks = aspMarkupBlocks(text),
 ): string {
     let masked = '';
@@ -366,20 +365,20 @@ let _htmlService: HtmlLs.LanguageService | undefined;
 
 /** The one HTML language service every markup feature shares, loaded on first use. */
 function htmlService(): HtmlLs.LanguageService {
-    return (_htmlService ??= loadHtmlService().getLanguageService());
+    return (_htmlService ??= HtmlLs.getLanguageService());
 }
 
-export interface OffsetRange { start: number; end: number; }
+interface OffsetRange { start: number; end: number; }
 
 /** A start or end tag, `<div …>` or `</div>`, from its `<` to past its `>`. */
-export interface MarkupTag extends OffsetRange {
+interface MarkupTag extends OffsetRange {
     /** Lower case; empty for a `<` the scanner found no name after. */
     name: string;
     close: boolean;
     selfClosing: boolean;
 }
 
-export interface PageMarkup {
+interface PageMarkup {
     /** The page with its ASP blanked, as the HTML and CSS services read it. */
     masked: string;
     /** The ASP blocks blanked in `masked` (aspMarkupBlocks). */
@@ -411,7 +410,7 @@ export function scanMarkup(text: string): PageMarkup {
     // word, so the value ends where the block does; spaces would leave the
     // `=` waiting and take the next attribute for the value.
     const masked    = maskAsp(text, start => /=[ \t]*$/.test(text.slice(Math.max(0, start - 8), start)) ? 'x' : ' ', aspBlocks);
-    const { TokenType } = loadHtmlService();
+    const { TokenType } = HtmlLs;
 
     const markup: PageMarkup = { masked, aspBlocks, tags: [], comments: [], scripts: [], styles: [], styleAttributes: [], eventHandlers: [] };
     let tag: MarkupTag | undefined;
@@ -505,19 +504,6 @@ export function getVbScriptBlockRanges(text: string): OffsetRange[] {
     return scanMarkup(text).scripts.filter(s => s.language === 'vbscript').map(({ start, end }) => ({ start, end }));
 }
 
-/** Body ranges of every real `<style>` block. */
-export function getCssBlockRanges(text: string): OffsetRange[] {
-    return scanMarkup(text).styles;
-}
-
-/**
- * Every `<script>` body that is actually JavaScript. VBScript blocks and other
- * types (e.g. text/template) are left out: they are the 'asp' and 'html' zones.
- */
-export function getJsBlockRanges(text: string): OffsetRange[] {
-    return scanMarkup(text).scripts.filter(s => s.language === 'javascript').map(({ start, end }) => ({ start, end }));
-}
-
 /**
  * Every `<% … %>` block, as offsets, by the engine's lexical rule: the first
  * `%>` closes it, even one in a string. An unclosed `<%` runs to the end of the
@@ -541,7 +527,7 @@ export function getAspBlockRanges(text: string): OffsetRange[] {
 }
 
 /** A `%>` outside every block, or a `<%` that is never closed. */
-export interface AspTagProblem {
+interface AspTagProblem {
     offset: number;
     kind: 'stray' | 'unclosed';
 }
@@ -583,6 +569,8 @@ export function inRanges(
     return false;
 }
 
+
+
 export interface ZoneResolver {
     zoneAt(offset: number): Zone;
     /** The ranges the zones are read from, each sorted and non-overlapping. aspBlocks' bounds are exclusive, the rest inclusive. */
@@ -593,6 +581,8 @@ export interface ZoneResolver {
     /** Everything else read from the markup: comments, tags, style="" values. */
     readonly markup: PageMarkup;
 }
+
+
 
 /** Scans `text` once, then answers zone queries without touching it again. */
 export function createZoneResolver(text: string): ZoneResolver {

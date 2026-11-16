@@ -31,7 +31,7 @@
 
 import { getAspBlockRanges, getVbScriptBlockRanges } from '../core/zoneUtils';
 
-export type SegmentKind = 'code' | 'output' | 'html';
+type SegmentKind = 'code' | 'output' | 'html';
 
 export interface Segment {
     kind: SegmentKind;
@@ -39,7 +39,7 @@ export interface Segment {
     end: number;
 }
 
-export interface ProgramSource {
+interface ProgramSource {
     segments: Segment[];
     /**
      * False for a `<script language="vbscript">` without `runat="server"`:

@@ -17,25 +17,9 @@
  * leave alone.
  */
 
-import { pageBlocks, type BlockEvent } from '../vbscript/pageAnalysis';
-import { parsePage } from '../vbscript/symbols';
+import type { BlockEvent } from '../vbscript/pageAnalysis';
 import { VOID_ELEMENTS } from '../constants/htmlTags';
 import { inRanges, scanMarkup } from './zoneUtils';
-
-// ── Structural tags we care about ────────────────────────────────────────────
-
-// Only elements that REQUIRE a closing tag belong here. Table cells/rows/sections
-// (tr, td, th, thead, tbody, tfoot) and list items have OPTIONAL end tags per the
-// HTML spec, so a "missing" </td> or </tr> is never an error — flagging them
-// flooded valid tables with false "Missing closing tag" warnings (which also
-// blocked Format Document, since formatting is refused while diagnostics exist).
-export const STRUCTURAL_TAGS = new Set([
-    'div', 'table', 'form', 'section', 'nav',
-    'ul', 'ol',
-    'select', 'fieldset', 'figure', 'details', 'summary',
-    'article', 'aside', 'header', 'footer', 'main', 'dialog',
-]);
-
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,7 +32,7 @@ interface TagEntry {
 }
 
 /** A problem in the page's tag structure, as offsets into the text. */
-export interface StructureIssue {
+interface StructureIssue {
     /** What to underline. */
     start:   number;
     end:     number;
@@ -70,12 +54,7 @@ export interface StructureIssue {
  * `dedent` is how many levels shallower than where Prettier puts it the tag
  * belongs, since Prettier lays it out inside the first branch's element.
  */
-export interface HiddenTag { start: number; end: number; dedent: number; }
-
-export interface HtmlStructure {
-    issues: StructureIssue[];
-    hidden: HiddenTag[];
-}
+interface HiddenTag { start: number; end: number; dedent: number; }
 
 type TagEvent =
     | { type: 'open';  entry: TagEntry }
@@ -128,12 +107,11 @@ interface BranchFrame {
  * as the diagnostics want; the formatter hides a branch's copy of any element.
  */
 export function analyseHtmlStructure(
-    fullText: string, events?: BlockEvent[], tracked: (name: string) => boolean = name => STRUCTURAL_TAGS.has(name),
-): HtmlStructure {
-    const branchEvents = (events ?? pageBlocks(parsePage(fullText)).events).filter(e => e.block !== 'other');
+    fullText: string, events: BlockEvent[], tracked: (name: string) => boolean,
+): HiddenTag[] {
+    const branchEvents = events.filter(e => e.block !== 'other');
     let nextEvent = 0;
     let   issues: StructureIssue[] = [];
-    const voids:  StructureIssue[] = [];
     let   hidden: HiddenTag[]      = [];
 
     // Stack of open structural tags waiting for their closer
@@ -311,13 +289,7 @@ export function analyseHtmlStructure(
         for (; nextTag < markup.tags.length && markup.tags[nextTag].start < until; nextTag++) {
             const tag = markup.tags[nextTag];
             if (!tag.name || tag.name === 'script' || tag.name === 'style') { continue; }
-            if (tag.close && VOID_ELEMENTS.has(tag.name)) {
-                voids.push({
-                    start: tag.start, end: tag.end, kind: 'void', name: tag.name, tag: { start: tag.start, end: tag.end },
-                    message: `</${tag.name}> is invalid — <${tag.name}> is a void element and cannot have a closing tag.`,
-                });
-                continue;
-            }
+            if (tag.close && VOID_ELEMENTS.has(tag.name)) { continue; }
             if (!tracked(tag.name) || tag.selfClosing) { continue; }
             record(tag.close
                 ? { type: 'close', name: tag.name, start: tag.start, end: tag.end }
@@ -365,20 +337,10 @@ export function analyseHtmlStructure(
         if (writtenPartner(issue)) { hidden.push({ ...issue.tag, dedent: 0 }); }
     }
 
-    // A branch can report the same tag as another branch did.
-    const seen = new Set<string>();
-    const unique = issues.filter(issue => {
-        if (writtenPartner(issue)) { return false; }
-        const key = `${issue.start}:${issue.end}:${issue.message}`;
-        if (seen.has(key)) { return false; }
-        seen.add(key);
-        return true;
-    });
-
     const hiddenSeen = new Set<number>();
     hidden = hidden
         .filter(tag => !hiddenSeen.has(tag.start) && hiddenSeen.add(tag.start))
         .sort((a, b) => a.start - b.start);
 
-    return { issues: [...unique, ...voids].sort((a, b) => a.start - b.start), hidden };
+    return hidden;
 }
