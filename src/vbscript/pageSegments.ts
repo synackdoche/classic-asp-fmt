@@ -9,9 +9,9 @@
  *     `%>` ends the block even inside a string, as IIS does (see zoneUtils).
  *   - `<%@ … %>` is a directive and holds no code.
  *   - Any other text between two blocks is HTML. IIS compiles each such chunk
- *     into a Response.WriteBlock statement, so it matters to the grammar: HTML
- *     between `Select Case` and the first `Case` is an error. A chunk of only
- *     whitespace is just a line break.
+ *     into a Response.WriteBlock statement, so HTML between `Select Case` and
+ *     the first `Case` is a syntax error. A chunk of only whitespace is just a
+ *     line break.
  *
  * A page whose `<%@ Language=… %>` directive names JScript has no page flow
  * program: its `<% %>` code is JScript, and reading it as VBScript filled the
@@ -23,8 +23,8 @@
  * does not sit inside whatever `<% If %>` surrounds the tag.
  *
  * A file with no `<%` and no VBScript script block is read as code from end
- * to end, as the extension already does for pure-code include files, unless
- * it starts with a tag: then it is plain markup and holds no VBScript.
+ * to end, so a pure-code `.inc` still parses, unless it starts with a tag:
+ * then it is plain markup and holds no VBScript.
  *
  * Includes are not followed here. An `<!-- #include -->` is just HTML.
  */

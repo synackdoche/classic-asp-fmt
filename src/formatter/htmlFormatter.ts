@@ -319,7 +319,7 @@ function rawTokenFor(id: string): string {
  * Byte ranges [start, end) of every real <script>/<style> element BODY (between
  * the opening tag's `>` and the closing tag) — or of the elements named. Reuses
  * the zone scanners so ASP blocks, quoted attributes, and VBScript strings are
- * handled the same way the rest of the extension handles them.
+ * read exactly as the rest of the formatter reads them.
  */
 function computeRawTextRanges(text: string, names: readonly string[] = ['script', 'style']): Array<[number, number]> {
     const ranges: Array<[number, number]> = [];

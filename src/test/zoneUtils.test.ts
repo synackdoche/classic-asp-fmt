@@ -288,10 +288,10 @@ describe('findNextRealTag / zones — literal < in body text', () => {
     });
 });
 
-// The semantic colourer marks these ranges as the ASP zone. A blind regex used
-// to do it, and coloured a `<script language="vbscript">` that was only TEXT —
-// written in an HTML comment or inside a VBScript string — plus everything up to
-// the next `</script>`.
+// These are the ranges the formatter reads as VBScript script bodies. A blind
+// regex used to find them, and took a `<script language="vbscript">` that was
+// only TEXT — written in an HTML comment or inside a VBScript string — plus
+// everything up to the next `</script>`.
 describe('getVbScriptBlockRanges', () => {
     const bodies = (text: string) =>
         getVbScriptBlockRanges(text).map(r => text.slice(r.start, r.end));

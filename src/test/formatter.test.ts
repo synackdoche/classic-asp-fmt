@@ -71,7 +71,7 @@ describe('formatPage — a JScript page', () => {
     });
 });
 
-// The formatter says why it left a page alone; the editor side decides what to show.
+// The formatter says why it left a page alone; the caller decides what to show.
 describe('formatPage — the result says what happened', () => {
     it('gives the formatted text', async () => {
         assert.deepStrictEqual(await formatPage('<div><p>x</p></div>\n', DEFAULT_OPTIONS), { ok: true, text: '<div><p>x</p></div>\n' });
@@ -90,8 +90,8 @@ describe('formatPage — the result says what happened', () => {
 
 // A void element's closing tag (</br>, </input>, …) is text wherever it is not
 // markup — in a string, a comment, an attribute value — and must come through.
-// One in the markup stops the format: the structure check reports it first in
-// the editor, and Prettier cannot read it.
+// One in the markup stops the format: Prettier cannot read it, and the page is
+// left as it was.
 describe('formatPage — void closing tags', () => {
     it('preserves a void closing tag emitted from a VBScript string', async () => {
         const input = '<%\nResponse.Write "</br>"\n%>';

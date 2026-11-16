@@ -1,14 +1,5 @@
 import * as assert from 'assert';
-import { ASP_OBJECTS, ASP_MEMBER_DOCS, VBSCRIPT_FUNCTIONS } from '../constants/aspKeywords';
-
-// The intrinsic objects used to be listed with four or five members each, so
-// ordinary code — Response.CharSet, Response.ContentType, Server.Transfer,
-// Request.BinaryRead — had no completion and no hover, and nothing told the
-// extension it was part of the language rather than a variable someone made up.
-//
-// These tests are mostly about the data staying coherent: a member missing a
-// doc, a duplicate, or an object added to the list but not to the derived
-// lookups would all be silent failures.
+import { ASP_MEMBERS, ASP_OBJECTS, VBSCRIPT_FUNCTIONS } from '../constants/aspKeywords';
 
 /** Members every Classic ASP page uses, which the original list did not have. */
 const MUST_EXIST: Array<[string, string]> = [
@@ -37,10 +28,8 @@ const MUST_EXIST: Array<[string, string]> = [
     ['ASPError', 'Number'],
     ['ASPError', 'Description'],
     ['ObjectContext', 'SetAbort'],
-    // Err is VBScript's rather than ASP's, but it reaches the editor the same
-    // way, and `On Error Resume Next` was in the keyword list with nothing to
-    // pair it with — the page could be told how to start ignoring errors and
-    // then had no idea what `Err.Number` was.
+    // Err is VBScript's rather than ASP's, but a page reads it the same way, and
+    // it is what `On Error Resume Next` leaves for the code after it to inspect.
     ['Err', 'Number'],
     ['Err', 'Description'],
     ['Err', 'Source'],
@@ -62,7 +51,7 @@ describe('ASP intrinsic objects — coverage', () => {
             const def = ASP_OBJECTS.find(o => o.name === object);
             assert.ok(def, `${object} is missing`);
             assert.ok(
-                def.members.some(m => m.name === member),
+                def.members.includes(member),
                 `${object}.${member} is missing`,
             );
         });
@@ -71,46 +60,23 @@ describe('ASP intrinsic objects — coverage', () => {
 
 describe('ASP intrinsic objects — the data holds together', () => {
 
-    it('gives every member a kind and a non-empty doc', () => {
-        for (const object of ASP_OBJECTS) {
-            for (const member of object.members) {
-                assert.ok(
-                    ['method', 'property', 'collection'].includes(member.kind),
-                    `${object.name}.${member.name} has kind ${member.kind}`,
-                );
-                assert.ok(
-                    member.doc.trim().length > 0,
-                    `${object.name}.${member.name} has no doc`,
-                );
-            }
-        }
-    });
-
     it('lists no member twice within an object', () => {
         for (const object of ASP_OBJECTS) {
             const seen = new Set<string>();
             for (const member of object.members) {
-                const key = member.name.toLowerCase();
-                assert.ok(!seen.has(key), `${object.name}.${member.name} is listed twice`);
+                const key = member.toLowerCase();
+                assert.ok(!seen.has(key), `${object.name}.${member} is listed twice`);
                 seen.add(key);
             }
         }
     });
 
-    it('derives one ASP_MEMBER_DOCS entry per member, keyed case-insensitively', () => {
+    it('lists every member as Object.Member, once per member', () => {
         const total = ASP_OBJECTS.reduce((n, o) => n + o.members.length, 0);
-        assert.strictEqual(Object.keys(ASP_MEMBER_DOCS).length, total);
-
-        const charset = ASP_MEMBER_DOCS['response.charset'];
-        assert.ok(charset, 'response.charset should be in the lookup');
-        assert.strictEqual(charset.label, 'Response.Charset');
-        assert.strictEqual(charset.kind, 'property');
-    });
-
-    it('marks the indexed members as collections, not properties', () => {
-        for (const key of ['request.form', 'request.querystring', 'request.servervariables',
-                           'response.cookies', 'session.contents', 'application.contents']) {
-            assert.strictEqual(ASP_MEMBER_DOCS[key].kind, 'collection', key);
+        assert.strictEqual(ASP_MEMBERS.length, total);
+        assert.ok(ASP_MEMBERS.includes('Response.Charset'), 'Response.Charset should be listed');
+        for (const label of ASP_MEMBERS) {
+            assert.ok(label.includes('.'), `${label} is not Object.Member`);
         }
     });
 
@@ -121,7 +87,7 @@ describe('ASP intrinsic objects — the data holds together', () => {
         assert.ok(session);
         for (const wrong of ['Remove', 'RemoveAll']) {
             assert.ok(
-                !session.members.some(m => m.name === wrong),
+                !session.members.includes(wrong),
                 `Session.${wrong} is not a real member`,
             );
         }

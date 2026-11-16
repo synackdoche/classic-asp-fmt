@@ -12,9 +12,8 @@
  * file skips it, and so are self-closing tags. A tag pair split across the
  * branches of a VBScript If or Select is read the way the page runs.
  *
- * Free of vscode: the structure diagnostics (html/htmlStructureDiagnosticsProvider)
- * report what this finds, and the formatter reads it to know which tags it must
- * leave alone.
+ * The formatter reads it to know which tags it must leave alone: one that sits
+ * in only some branches of an If cannot be paired around the placeholder.
  */
 
 import type { BlockEvent } from '../vbscript/pageAnalysis';

@@ -1,6 +1,6 @@
 import { codeWithoutStrings, endsWithContinuation, splitCodeAndComment, vbStatements, vbStringSegments } from '../core/vbLexical';
 import type { FormatterSettings, PrettierSettings } from '../options';
-import { ASP_MEMBER_DOCS, VBSCRIPT_BARE_FUNCTIONS, VBSCRIPT_FUNCTIONS } from '../constants/aspKeywords';
+import { ASP_MEMBERS, VBSCRIPT_BARE_FUNCTIONS, VBSCRIPT_FUNCTIONS } from '../constants/aspKeywords';
 import { getStringAlignColumn, isBlockOpener, VBSCRIPT_BLOCK_CLOSERS } from '../vbscript/indentRules';
 import type { ParsedPage } from '../vbscript/symbols';
 import { bindPage } from '../vbscript/binder';
@@ -620,7 +620,7 @@ const MEMBER_CASING_MAP: Record<string, string> = {
     'urlencode': 'URLEncode', 'write': 'Write', 'writeblanklines': 'WriteBlankLines',
     'writeline': 'WriteLine',
     // Every member of the ASP objects, as src/constants spells it: Response.End, Err.Number …
-    ...Object.fromEntries(Object.values(ASP_MEMBER_DOCS).map(({ label }) => {
+    ...Object.fromEntries(ASP_MEMBERS.map(label => {
         const member = label.slice(label.indexOf('.') + 1);
         return [member.toLowerCase(), member];
     })),

@@ -2,199 +2,99 @@
 // ASP intrinsic objects
 //
 // The objects that are in scope on every page without anyone creating them:
-// the seven from the ASP runtime, plus VBScript's `Err`. Err belongs to the
-// language rather than to ASP, but it reaches the editor the same way — a name
-// nobody declared, carrying members — and `On Error Resume Next` followed by
-// `If Err.Number <> 0 Then` is how a Classic ASP page handles an error at all.
+// the seven from the ASP runtime, plus VBScript's `Err`, which a page reads the
+// same way — a name nobody declared, carrying members.
 //
-// This is the complete member set of each, not a sample: the list used to hold
-// four or five members per object, so ordinary code like `Response.CharSet` or
-// `Server.Transfer` had no completion, no hover, and nothing marking it as part
-// of the language.
-//
-// `kind` separates the three things a member can be, because they are not used
-// the same way. A collection is indexed — `Request.Form("name")`; a property is
-// read or assigned — `Response.Buffer = True`; a method is called.
-//
-// Members are the documented ASP 3.0 set (IIS 5.0 onwards). Nothing here is
-// version-gated, since every supported IIS provides all of it.
+// The member names are what the formatter needs: a member written in the wrong
+// case is re-spelled from here, so `response.write` becomes `Response.Write`.
+// The list is the documented ASP 3.0 set (IIS 5.0 onwards).
 // ─────────────────────────────────────────────────────────────────────────────
-
-type AspMemberKind = 'method' | 'property' | 'collection';
-
-interface AspObjectMember {
-    name: string;
-    kind: AspMemberKind;
-    doc: string;
-    /** Completion insert text, when the member reads better with its call shape. */
-    snippet?: string;
-}
 
 interface AspObjectDef {
     name: string;
-    description: string;
-    members: AspObjectMember[];
+    members: string[];
 }
 
 export const ASP_OBJECTS: AspObjectDef[] = [
     {
         name: 'Response',
-        description: 'Send output to the client',
         members: [
-            { name: 'Write',            kind: 'method',     doc: 'Writes a value to the current HTTP response.', snippet: 'Write($0)' },
-            { name: 'BinaryWrite',      kind: 'method',     doc: 'Writes raw bytes to the response without character conversion — for images, PDFs and other binary content.', snippet: 'BinaryWrite($0)' },
-            { name: 'Redirect',         kind: 'method',     doc: 'Sends a 302 and tells the browser to request a different URL. Anything written before it is discarded.', snippet: 'Redirect("$0")' },
-            { name: 'End',              kind: 'method',     doc: 'Stops processing the page and sends what has been buffered so far.' },
-            { name: 'Clear',            kind: 'method',     doc: 'Discards the buffered response body. Requires `Response.Buffer = True`.' },
-            { name: 'Flush',            kind: 'method',     doc: 'Sends the buffered response so far immediately. Requires `Response.Buffer = True`.' },
-            { name: 'AddHeader',        kind: 'method',     doc: 'Adds an HTTP header. Must be called before any body output unless the response is buffered.', snippet: 'AddHeader "$1", "$0"' },
-            { name: 'AppendToLog',      kind: 'method',     doc: 'Appends a string to the web server log entry for this request.', snippet: 'AppendToLog "$0"' },
-            { name: 'Buffer',           kind: 'property',   doc: 'Whether output is held until the page finishes. `True` by default in ASP 3.0, and required by Clear, Flush and a late Redirect.' },
-            { name: 'CacheControl',     kind: 'property',   doc: 'Sets the Cache-Control header — `"Public"` lets proxies cache the page, `"Private"` (the default) does not.' },
-            { name: 'Charset',          kind: 'property',   doc: 'Appends a character set to the Content-Type header, e.g. `Response.Charset = "utf-8"`.' },
-            { name: 'ContentType',      kind: 'property',   doc: 'The HTTP content type, e.g. `"text/html"`, `"application/json"`, `"text/xml"`.' },
-            { name: 'Expires',          kind: 'property',   doc: 'Minutes before a cached page expires. `0` forces revalidation on every request.' },
-            { name: 'ExpiresAbsolute',  kind: 'property',   doc: 'The date and time at which a cached page expires.' },
-            { name: 'IsClientConnected', kind: 'property',  doc: 'Read-only. `False` once the client has disconnected — worth checking inside a long loop.' },
-            { name: 'PICS',             kind: 'property',   doc: 'Adds a PICS content-rating label to the response headers.' },
-            { name: 'Status',           kind: 'property',   doc: 'The HTTP status line, e.g. `"404 Not Found"` or `"301 Moved Permanently"`.' },
-            { name: 'Cookies',          kind: 'collection', doc: 'The cookies sent to the browser. Write-only: `Response.Cookies("name") = value`.', snippet: 'Cookies("$0")' },
+            'Write', 'BinaryWrite', 'Redirect', 'End', 'Clear', 'Flush', 'AddHeader',
+            'AppendToLog', 'Buffer', 'CacheControl', 'Charset', 'ContentType', 'Expires',
+            'ExpiresAbsolute', 'IsClientConnected', 'PICS', 'Status', 'Cookies',
         ],
     },
     {
         name: 'Request',
-        description: 'Get information from the user',
         members: [
-            { name: 'Form',              kind: 'collection', doc: 'Values posted from a form body (`method="post"`).', snippet: 'Form("$0")' },
-            { name: 'QueryString',       kind: 'collection', doc: 'Values from the URL query string after the `?`.', snippet: 'QueryString("$0")' },
-            { name: 'Cookies',           kind: 'collection', doc: 'Cookies sent by the browser. Read-only on Request; write through Response.Cookies.', snippet: 'Cookies("$0")' },
-            { name: 'ServerVariables',   kind: 'collection', doc: 'HTTP headers and server environment values, e.g. `"REMOTE_ADDR"`, `"HTTP_USER_AGENT"`, `"SCRIPT_NAME"`.', snippet: 'ServerVariables("$0")' },
-            { name: 'ClientCertificate', kind: 'collection', doc: 'Fields of the client TLS certificate, when one was presented.', snippet: 'ClientCertificate("$0")' },
-            { name: 'TotalBytes',        kind: 'property',   doc: 'Read-only. The number of bytes in the request body, for use with BinaryRead.' },
-            { name: 'BinaryRead',        kind: 'method',     doc: 'Reads the raw request body as a byte array — how file uploads are read without a component.', snippet: 'BinaryRead($0)' },
+            'Form', 'QueryString', 'Cookies', 'ServerVariables', 'ClientCertificate', 'TotalBytes',
+            'BinaryRead',
         ],
     },
     {
         name: 'Server',
-        description: 'Server utilities and methods',
         members: [
-            { name: 'CreateObject',  kind: 'method',   doc: 'Creates an instance of a registered COM component by ProgID.', snippet: 'CreateObject("$0")' },
-            { name: 'MapPath',       kind: 'method',   doc: 'Turns a virtual path into the physical path on disk.', snippet: 'MapPath("$0")' },
-            { name: 'HTMLEncode',    kind: 'method',   doc: 'Escapes `& < > "` so a value is safe to write into markup.', snippet: 'HTMLEncode($0)' },
-            { name: 'URLEncode',     kind: 'method',   doc: 'Escapes a value for use in a URL query string.', snippet: 'URLEncode($0)' },
-            { name: 'Execute',       kind: 'method',   doc: 'Runs another .asp file as if it were part of this one, then returns.', snippet: 'Execute("$0")' },
-            { name: 'Transfer',      kind: 'method',   doc: 'Hands the request to another .asp file, keeping the current state, and does not return.', snippet: 'Transfer("$0")' },
-            { name: 'GetLastError',  kind: 'method',   doc: 'Returns an ASPError object describing the error that ended the previous page. Used in a custom error page.' },
-            { name: 'ScriptTimeout', kind: 'property', doc: 'Seconds a page may run before the server stops it.' },
+            'CreateObject', 'MapPath', 'HTMLEncode', 'URLEncode', 'Execute', 'Transfer',
+            'GetLastError', 'ScriptTimeout',
         ],
     },
     {
         name: 'Session',
-        description: 'Store per-user state across requests',
         members: [
-            { name: 'Contents',      kind: 'collection', doc: 'Values stored in the session. `Session.Contents.Remove("key")` and `.RemoveAll()` clear them.', snippet: 'Contents("$0")' },
-            { name: 'StaticObjects',  kind: 'collection', doc: 'Read-only. Objects added to the session with `<object runat="server" scope="session">`.' },
-            { name: 'Abandon',       kind: 'method',     doc: 'Destroys the session and its contents at the end of this request.' },
-            { name: 'SessionID',     kind: 'property',   doc: 'Read-only. The identifier for this session. Not unique across application restarts, so do not use it as a database key.' },
-            { name: 'Timeout',       kind: 'property',   doc: 'Minutes of inactivity before the session is abandoned.' },
-            { name: 'CodePage',      kind: 'property',   doc: 'The code page used to convert strings for output.' },
-            { name: 'LCID',          kind: 'property',   doc: 'The locale identifier, which decides date, time and currency formatting.' },
+            'Contents', 'StaticObjects', 'Abandon', 'SessionID', 'Timeout', 'CodePage', 'LCID',
         ],
     },
     {
         name: 'Application',
-        description: 'Share information among all users',
         members: [
-            { name: 'Contents',      kind: 'collection', doc: 'Values shared by every session. `Application.Contents.Remove("key")` and `.RemoveAll()` clear them.', snippet: 'Contents("$0")' },
-            { name: 'StaticObjects', kind: 'collection', doc: 'Read-only. Objects added with `<object runat="server" scope="application">`.' },
-            { name: 'Lock',          kind: 'method',     doc: 'Blocks other sessions from changing Application state — always pair with Unlock.' },
-            { name: 'Unlock',        kind: 'method',     doc: 'Releases the lock taken by Lock.' },
+            'Contents', 'StaticObjects', 'Lock', 'Unlock',
         ],
     },
     {
         name: 'ASPError',
-        description: 'Details of the error that ended the previous page',
         members: [
-            { name: 'ASPCode',        kind: 'property', doc: 'Read-only. The error code generated by IIS.' },
-            { name: 'ASPDescription', kind: 'property', doc: 'Read-only. A longer description, for errors that are ASP-specific.' },
-            { name: 'Category',       kind: 'property', doc: 'Read-only. Whether the error came from ASP itself, the scripting language, or a component.' },
-            { name: 'Column',         kind: 'property', doc: 'Read-only. The column in the file where the error occurred.' },
-            { name: 'Description',    kind: 'property', doc: 'Read-only. A short description of the error.' },
-            { name: 'File',           kind: 'property', doc: 'Read-only. The .asp file being processed when the error occurred.' },
-            { name: 'Line',           kind: 'property', doc: 'Read-only. The line in the file where the error occurred.' },
-            { name: 'Number',         kind: 'property', doc: 'Read-only. The standard COM error code.' },
-            { name: 'Source',         kind: 'property', doc: 'Read-only. The source line that raised the error.' },
+            'ASPCode', 'ASPDescription', 'Category', 'Column', 'Description', 'File', 'Line',
+            'Number', 'Source',
         ],
     },
     {
         name: 'ObjectContext',
-        description: 'Control the transaction a page takes part in',
         members: [
-            { name: 'SetComplete', kind: 'method', doc: 'Votes to commit the transaction this page is part of.' },
-            { name: 'SetAbort',    kind: 'method', doc: 'Votes to abort the transaction this page is part of.' },
+            'SetComplete', 'SetAbort',
         ],
     },
     {
         name: 'Err',
-        description: 'The last runtime error (VBScript, not ASP)',
         members: [
-            { name: 'Number',      kind: 'property', doc: 'The error code. `0` means no error — this is what `On Error Resume Next` code tests. Assigning to it also raises the error.' },
-            { name: 'Description', kind: 'property', doc: 'A short description of the error.' },
-            { name: 'Source',      kind: 'property', doc: 'The name of the object or application that raised the error.' },
-            { name: 'HelpFile',    kind: 'property', doc: 'Path of the help file associated with the error.' },
-            { name: 'HelpContext', kind: 'property', doc: 'Context id of the help topic associated with the error.' },
-            { name: 'Clear',       kind: 'method',   doc: 'Resets Err to `0`/empty. `On Error Resume Next` does NOT clear it between statements, so a later check sees the earlier error unless this is called.' },
-            { name: 'Raise',       kind: 'method',   doc: 'Raises a runtime error. Custom codes are conventionally `vbObjectError + n`.', snippet: 'Raise $1, "$2", "$0"' },
+            'Number', 'Description', 'Source', 'HelpFile', 'HelpContext', 'Clear', 'Raise',
         ],
     },
 ];
 
-/**
- * Every intrinsic member keyed as `object.member`, both lowercased, so hover can
- * look one up from the text around the caret without walking the list.
- */
-export const ASP_MEMBER_DOCS: Record<string, { label: string; kind: AspMemberKind; doc: string }> = {};
-for (const object of ASP_OBJECTS) {
-    for (const member of object.members) {
-        ASP_MEMBER_DOCS[`${object.name.toLowerCase()}.${member.name.toLowerCase()}`] = {
-            label: `${object.name}.${member.name}`,
-            kind:  member.kind,
-            doc:   member.doc,
-        };
-    }
-}
+/** Every intrinsic member as `Object.Member`, spelled as the table above spells it. */
+export const ASP_MEMBERS: string[] = ASP_OBJECTS.flatMap(object =>
+    object.members.map(member => `${object.name}.${member}`),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VBScript's built-in functions — the whole documented set for VBScript 5.x,
-// which is what every supported IIS ships.
-//
-// A few are here despite being useless on a server, because they are part of
-// the language and a page that calls one should still be told what it is:
-// MsgBox and InputBox block on a dialog nobody can see, and LoadPicture needs a
-// display. The syntaxes/ grammar colours the same set, so the two are meant to
-// be compared when either changes.
-//
-// The `B` variants (AscB, ChrB, InStrB, LeftB, LenB, MidB, RightB) work in
-// bytes rather than characters. They are rare but real, and turn up in older
-// code that handles binary uploads a byte at a time.
+// which is what every supported IIS ships. A few are useless on a server
+// (MsgBox, InputBox, LoadPicture) but are part of the language all the same.
 // ─────────────────────────────────────────────────────────────────────────────
 export const VBSCRIPT_FUNCTIONS = [
-    'Abs', 'Array', 'Asc', 'AscB', 'AscW', 'Atn', 'CBool', 'CByte', 'CCur',
-    'CDate', 'CDbl', 'Chr', 'ChrB', 'ChrW', 'CInt', 'CLng', 'Cos',
-    'CreateObject', 'CSng', 'CStr', 'Date', 'DateAdd', 'DateDiff', 'DatePart',
-    'DateSerial', 'DateValue', 'Day', 'Escape', 'Eval', 'Execute',
-    'ExecuteGlobal', 'Exp', 'Filter', 'Fix', 'FormatCurrency',
-    'FormatDateTime', 'FormatNumber', 'FormatPercent', 'GetLocale', 'GetObject',
-    'GetRef', 'Hex', 'Hour', 'InputBox', 'InStr', 'InStrB', 'InStrRev', 'Int',
-    'IsArray', 'IsDate', 'IsEmpty', 'IsNull', 'IsNumeric', 'IsObject', 'Join',
-    'LBound', 'LCase', 'Left', 'LeftB', 'Len', 'LenB', 'LoadPicture', 'Log',
-    'LTrim', 'Mid', 'MidB', 'Minute', 'Month', 'MonthName', 'MsgBox', 'Now',
-    'Oct', 'Replace', 'RGB', 'Right', 'RightB', 'Rnd', 'Round', 'RTrim',
-    'ScriptEngine', 'ScriptEngineBuildVersion', 'ScriptEngineMajorVersion',
-    'ScriptEngineMinorVersion', 'Second', 'SetLocale', 'Sgn', 'Sin', 'Space',
-    'Split', 'Sqr', 'StrComp', 'String', 'StrReverse', 'Tan', 'Time', 'Timer',
-    'TimeSerial', 'TimeValue', 'Trim', 'TypeName', 'UBound', 'UCase',
-    'Unescape', 'VarType', 'Weekday', 'WeekdayName', 'Year'
+    'Abs', 'Array', 'Asc', 'AscB', 'AscW', 'Atn', 'CBool', 'CByte', 'CCur', 'CDate', 'CDbl', 'Chr',
+    'ChrB', 'ChrW', 'CInt', 'CLng', 'Cos', 'CreateObject', 'CSng', 'CStr', 'Date', 'DateAdd',
+    'DateDiff', 'DatePart', 'DateSerial', 'DateValue', 'Day', 'Escape', 'Eval', 'Execute',
+    'ExecuteGlobal', 'Exp', 'Filter', 'Fix', 'FormatCurrency', 'FormatDateTime', 'FormatNumber',
+    'FormatPercent', 'GetLocale', 'GetObject', 'GetRef', 'Hex', 'Hour', 'InputBox', 'InStr',
+    'InStrB', 'InStrRev', 'Int', 'IsArray', 'IsDate', 'IsEmpty', 'IsNull', 'IsNumeric', 'IsObject',
+    'Join', 'LBound', 'LCase', 'Left', 'LeftB', 'Len', 'LenB', 'LoadPicture', 'Log', 'LTrim',
+    'Mid', 'MidB', 'Minute', 'Month', 'MonthName', 'MsgBox', 'Now', 'Oct', 'Replace', 'RGB',
+    'Right', 'RightB', 'Rnd', 'Round', 'RTrim', 'ScriptEngine', 'ScriptEngineBuildVersion',
+    'ScriptEngineMajorVersion', 'ScriptEngineMinorVersion', 'Second', 'SetLocale', 'Sgn', 'Sin',
+    'Space', 'Split', 'Sqr', 'StrComp', 'String', 'StrReverse', 'Tan', 'Time', 'Timer',
+    'TimeSerial', 'TimeValue', 'Trim', 'TypeName', 'UBound', 'UCase', 'Unescape', 'VarType',
+    'Weekday', 'WeekdayName', 'Year',
 ];
 
 /**
@@ -207,109 +107,33 @@ export const VBSCRIPT_BARE_FUNCTIONS = [
     'ScriptEngineMajorVersion', 'ScriptEngineMinorVersion', 'Time', 'Timer',
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VBScript's built-in constants — the whole set the VBScript 5.x engine
+// defines, checked against cscript.exe.
+// ─────────────────────────────────────────────────────────────────────────────
+const VBSCRIPT_CONSTANTS: string[] = [
+    'vbCrLf', 'vbCr', 'vbLf', 'vbNewLine', 'vbTab', 'vbNullChar', 'vbNullString', 'vbFormFeed',
+    'vbVerticalTab', 'vbObjectError', 'vbBinaryCompare', 'vbTextCompare', 'vbTrue', 'vbFalse',
+    'vbUseDefault', 'vbSunday', 'vbMonday', 'vbTuesday', 'vbWednesday', 'vbThursday', 'vbFriday',
+    'vbSaturday', 'vbUseSystemDayOfWeek', 'vbFirstJan1', 'vbFirstFourDays', 'vbFirstFullWeek',
+    'vbUseSystem', 'vbGeneralDate', 'vbLongDate', 'vbShortDate', 'vbLongTime', 'vbShortTime',
+    'vbEmpty', 'vbNull', 'vbInteger', 'vbLong', 'vbSingle', 'vbDouble', 'vbCurrency', 'vbDate',
+    'vbString', 'vbObject', 'vbError', 'vbBoolean', 'vbVariant', 'vbDataObject', 'vbDecimal',
+    'vbByte', 'vbArray', 'vbBlack', 'vbRed', 'vbGreen', 'vbYellow', 'vbBlue', 'vbMagenta',
+    'vbCyan', 'vbWhite', 'vbOKOnly', 'vbOKCancel', 'vbAbortRetryIgnore', 'vbYesNoCancel',
+    'vbYesNo', 'vbRetryCancel', 'vbCritical', 'vbQuestion', 'vbExclamation', 'vbInformation',
+    'vbDefaultButton1', 'vbDefaultButton2', 'vbDefaultButton3', 'vbDefaultButton4',
+    'vbApplicationModal', 'vbSystemModal', 'vbMsgBoxHelpButton', 'vbMsgBoxSetForeground',
+    'vbMsgBoxRight', 'vbMsgBoxRtlReading', 'vbOK', 'vbCancel', 'vbAbort', 'vbRetry', 'vbIgnore',
+    'vbYes', 'vbNo',
+];
+
 /**
  * The built-in functions and constants, lower-cased. Assigning to one without
  * declaring it first does not make a variable: cscript stops at `hex = 5` or
  * `vbCr = 5` with "Illegal assignment". A `Dim hex` does make one.
  */
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VBScript's built-in constants.
-//
-// The whole set the VBScript 5.x engine defines, checked against cscript.exe:
-// the grammar colours them, completion offers them, and the checks must know
-// every one, or a page with Option Explicit is told a built-in is undeclared.
-// The MsgBox and colour families are useless on a server, like MsgBox itself,
-// but they are part of the language and client-side VBScript uses them.
-// ─────────────────────────────────────────────────────────────────────────────
-const VBSCRIPT_CONSTANTS: { name: string; doc: string }[] = [
-    { name: 'vbCrLf',               doc: 'Carriage return + line feed — `Chr(13) & Chr(10)`.' },
-    { name: 'vbCr',                 doc: 'Carriage return — `Chr(13)`.' },
-    { name: 'vbLf',                 doc: 'Line feed — `Chr(10)`.' },
-    { name: 'vbNewLine',            doc: 'The platform newline. On Windows this is the same as vbCrLf.' },
-    { name: 'vbTab',                doc: 'Tab — `Chr(9)`.' },
-    { name: 'vbNullChar',           doc: 'A character with the value 0 — `Chr(0)`.' },
-    { name: 'vbNullString',         doc: 'A null string reference. Not the same as `""`, though it compares equal.' },
-    { name: 'vbFormFeed',           doc: 'Form feed — `Chr(12)`.' },
-    { name: 'vbVerticalTab',        doc: 'Vertical tab — `Chr(11)`.' },
-    { name: 'vbObjectError',        doc: 'The base for user-defined error codes: `Err.Raise vbObjectError + 1`.' },
-    { name: 'vbBinaryCompare',      doc: '`0` — case-sensitive comparison, the default for InStr, Replace and StrComp.' },
-    { name: 'vbTextCompare',        doc: '`1` — case-insensitive comparison.' },
-    { name: 'vbTrue',               doc: '`-1`. A Tristate value, for the FileSystemObject.' },
-    { name: 'vbFalse',              doc: '`0`. A Tristate value, for the FileSystemObject.' },
-    { name: 'vbUseDefault',         doc: '`-2` — use the system default. A Tristate value.' },
-    { name: 'vbSunday',             doc: '`1`. A day constant, for Weekday and WeekdayName.' },
-    { name: 'vbMonday',             doc: '`2`. A day constant.' },
-    { name: 'vbTuesday',            doc: '`3`. A day constant.' },
-    { name: 'vbWednesday',          doc: '`4`. A day constant.' },
-    { name: 'vbThursday',           doc: '`5`. A day constant.' },
-    { name: 'vbFriday',             doc: '`6`. A day constant.' },
-    { name: 'vbSaturday',           doc: '`7`. A day constant.' },
-    { name: 'vbUseSystemDayOfWeek', doc: '`0` — use the first day of the week from the system settings.' },
-    { name: 'vbFirstJan1',          doc: '`1` — the week containing January 1st is week one.' },
-    { name: 'vbFirstFourDays',      doc: '`2` — the first week with at least four days in the new year is week one.' },
-    { name: 'vbFirstFullWeek',      doc: '`3` — the first whole week of the new year is week one.' },
-    { name: 'vbUseSystem',          doc: '`0` — use the system setting. A FirstWeekOfYear value for DatePart and DateDiff.' },
-    { name: 'vbGeneralDate',        doc: '`0` — date and time in the locale format. A FormatDateTime constant.' },
-    { name: 'vbLongDate',           doc: '`1` — the long date format. A FormatDateTime constant.' },
-    { name: 'vbShortDate',          doc: '`2` — the short date format. A FormatDateTime constant.' },
-    { name: 'vbLongTime',           doc: '`3` — the long time format. A FormatDateTime constant.' },
-    { name: 'vbShortTime',          doc: '`4` — 24-hour hh:mm. A FormatDateTime constant.' },
-    { name: 'vbEmpty',              doc: '`0` — uninitialized. A VarType return value.' },
-    { name: 'vbNull',               doc: '`1` — contains no valid data. A VarType return value.' },
-    { name: 'vbInteger',            doc: '`2`. A VarType return value.' },
-    { name: 'vbLong',               doc: '`3`. A VarType return value.' },
-    { name: 'vbSingle',             doc: '`4`. A VarType return value.' },
-    { name: 'vbDouble',             doc: '`5`. A VarType return value.' },
-    { name: 'vbCurrency',           doc: '`6`. A VarType return value.' },
-    { name: 'vbDate',               doc: '`7`. A VarType return value.' },
-    { name: 'vbString',             doc: '`8`. A VarType return value.' },
-    { name: 'vbObject',             doc: '`9`. A VarType return value.' },
-    { name: 'vbError',              doc: '`10`. A VarType return value.' },
-    { name: 'vbBoolean',            doc: '`11`. A VarType return value.' },
-    { name: 'vbVariant',            doc: '`12` — only in an array of variants. A VarType return value.' },
-    { name: 'vbDataObject',         doc: '`13`. A VarType return value.' },
-    { name: 'vbDecimal',            doc: '`14`. A VarType return value.' },
-    { name: 'vbByte',               doc: '`17`. A VarType return value.' },
-    { name: 'vbArray',              doc: '`8192` — added to the element type. A VarType return value.' },
-    { name: 'vbBlack',              doc: '`&h00` — black. A color constant.' },
-    { name: 'vbRed',                doc: '`&hFF` — red. A color constant.' },
-    { name: 'vbGreen',              doc: '`&hFF00` — green. A color constant.' },
-    { name: 'vbYellow',             doc: '`&hFFFF` — yellow. A color constant.' },
-    { name: 'vbBlue',               doc: '`&hFF0000` — blue. A color constant.' },
-    { name: 'vbMagenta',            doc: '`&hFF00FF` — magenta. A color constant.' },
-    { name: 'vbCyan',               doc: '`&hFFFF00` — cyan. A color constant.' },
-    { name: 'vbWhite',              doc: '`&hFFFFFF` — white. A color constant.' },
-    { name: 'vbOKOnly',             doc: '`0` — an OK button only. A MsgBox buttons value.' },
-    { name: 'vbOKCancel',           doc: '`1` — OK and Cancel. A MsgBox buttons value.' },
-    { name: 'vbAbortRetryIgnore',   doc: '`2` — Abort, Retry and Ignore. A MsgBox buttons value.' },
-    { name: 'vbYesNoCancel',        doc: '`3` — Yes, No and Cancel. A MsgBox buttons value.' },
-    { name: 'vbYesNo',              doc: '`4` — Yes and No. A MsgBox buttons value.' },
-    { name: 'vbRetryCancel',        doc: '`5` — Retry and Cancel. A MsgBox buttons value.' },
-    { name: 'vbCritical',           doc: '`16` — the critical-message icon. Added to a MsgBox buttons value.' },
-    { name: 'vbQuestion',           doc: '`32` — the question icon. Added to a MsgBox buttons value.' },
-    { name: 'vbExclamation',        doc: '`48` — the warning icon. Added to a MsgBox buttons value.' },
-    { name: 'vbInformation',        doc: '`64` — the information icon. Added to a MsgBox buttons value.' },
-    { name: 'vbDefaultButton1',     doc: '`0` — the first button is the default. Added to a MsgBox buttons value.' },
-    { name: 'vbDefaultButton2',     doc: '`256` — the second button is the default. Added to a MsgBox buttons value.' },
-    { name: 'vbDefaultButton3',     doc: '`512` — the third button is the default. Added to a MsgBox buttons value.' },
-    { name: 'vbDefaultButton4',     doc: '`768` — the fourth button is the default. Added to a MsgBox buttons value.' },
-    { name: 'vbApplicationModal',   doc: '`0` — the user must answer before going on in this application. A MsgBox value.' },
-    { name: 'vbSystemModal',        doc: '`4096` — every application waits for the answer. A MsgBox value.' },
-    { name: 'vbMsgBoxHelpButton',   doc: '`16384` — adds a Help button. A MsgBox value.' },
-    { name: 'vbMsgBoxSetForeground', doc: '`65536` — brings the message box to the front. A MsgBox value.' },
-    { name: 'vbMsgBoxRight',        doc: '`524288` — right-aligns the text. A MsgBox value.' },
-    { name: 'vbMsgBoxRtlReading',   doc: '`1048576` — right-to-left reading order. A MsgBox value.' },
-    { name: 'vbOK',                 doc: '`1` — OK was clicked. A MsgBox return value.' },
-    { name: 'vbCancel',             doc: '`2` — Cancel was clicked. A MsgBox return value.' },
-    { name: 'vbAbort',              doc: '`3` — Abort was clicked. A MsgBox return value.' },
-    { name: 'vbRetry',              doc: '`4` — Retry was clicked. A MsgBox return value.' },
-    { name: 'vbIgnore',             doc: '`5` — Ignore was clicked. A MsgBox return value.' },
-    { name: 'vbYes',                doc: '`6` — Yes was clicked. A MsgBox return value.' },
-    { name: 'vbNo',                 doc: '`7` — No was clicked. A MsgBox return value.' },
-];
 export const VBSCRIPT_BUILTIN_VALUES: ReadonlySet<string> = new Set([
     ...VBSCRIPT_FUNCTIONS.map(name => name.toLowerCase()),
-    ...VBSCRIPT_CONSTANTS.map(constant => constant.name.toLowerCase()),
+    ...VBSCRIPT_CONSTANTS.map(name => name.toLowerCase()),
 ]);

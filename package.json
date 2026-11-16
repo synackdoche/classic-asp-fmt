@@ -9,7 +9,6 @@
   "bin": {
     "classic-asp-fmt": "out/cli.js"
   },
-  "main": "out/formatter/htmlFormatter.js",
   "scripts": {
     "build": "npm run clean && tsc -p .",
     "clean": "node -e \"require('fs').rmSync('out', { recursive: true, force: true })\"",

@@ -11,9 +11,6 @@
  * and so on. Pasting the text together instead would need a map from every
  * offset back to its file, and a fresh parse of every include each time the
  * page changes.
- *
- * Imports no vscode APIs: the caller says how to read and resolve a file, so
- * the editor (open buffers first), a worker thread and the tests share it.
  */
 
 import type { ParsedPage } from './symbols';

@@ -1,18 +1,8 @@
 /**
  * symbols.ts
  *
- * Reads the declared symbols of a page from its syntax trees, in the
- * FileSymbols shape that completion, the Outline, Ctrl+T and
- * the colouring read. It took over from a line scanner, and keeps that
- * scanner's deliberate choices:
- *   - A plain `x = …` records an implicit variable only when the page has no
- *     Option Explicit, and only for a name not seen before.
- *   - A For Each variable is implicit; a For counter is not recorded.
- *   - Every symbol reports the line its statement starts on.
- * What it does not copy is the line scanner's blind spots: a declaration after
- * `Then` on a one-line If, `<%= x = 1 %>` (a comparison, not an assignment),
- * HTML text that happens to look like code, and `F = …` inside Function F,
- * which sets the function's return value and declares nothing.
+ * A page as the formatter reads it: its text, one syntax tree per program it
+ * holds, and the offset each of its lines starts at.
  */
 
 import type * as A from './ast';
@@ -31,9 +21,8 @@ export function parsePage(text: string): ParsedPage {
 }
 
 /**
- * The offset each of the page's lines starts at, split where a TextDocument
- * splits them — at \r\n, \n or a lone \r — so every offset matches the
- * editor's own.
+ * The offset each of the page's lines starts at, split at \r\n, \n or a lone
+ * \r: a line ends at any of the three, and a \r\n pair is one break.
  */
 function lineStartsOf(text: string): number[] {
     const starts: number[] = [];
